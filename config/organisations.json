@@ -1,0 +1,91 @@
+[
+  {
+    "id": "0a4006e9236c4ede89cfec9a25211e02",
+    "name": "Application Service Development Dept",
+    "chineseName": "後勤應用系統部"
+  },
+  {
+    "id": "d7b42e67f8e245df96b156ceca0b6a9e",
+    "name": "Cybersecurity Management Dept",
+    "chineseName": "資訊安全管理部"
+  },
+  {
+    "id": "6457404df27542e8ae7fe9e89d5324fb",
+    "name": "Development and Test Service Dept",
+    "chineseName": "開發暨測試部"
+  },
+  {
+    "id": "003575fbb9ad4853a48dcd82e9d6a00e",
+    "name": "Digital Application IT Dept",
+    "chineseName": "數位資訊部"
+  },
+  {
+    "id": "0625a7a6122d448b960d088dfca69839",
+    "name": "Information Processing Dept",
+    "chineseName": "資訊營運部"
+  },
+  {
+    "id": "c063d311f3504cbdb482578e95a4c69c",
+    "name": "Information Strategy Planning Dept",
+    "chineseName": "資訊規劃部"
+  },
+  {
+    "id": "4c0d21be1f754e2ba92583c9737708fe",
+    "name": "Institutional Banking IT Dept I",
+    "chineseName": "法金資訊一部"
+  },
+  {
+    "id": "d979a002cf2d42b59df7d909d2b413e0",
+    "name": "Institutional Banking IT Dept II",
+    "chineseName": "法金資訊二部"
+  },
+  {
+    "id": "79ccd260a7154b18a3ecbea27e647c42",
+    "name": "Institutional Banking IT Dept III",
+    "chineseName": "法金資訊三部"
+  },
+  {
+    "id": "6116cf83157b40d983b25935b0cb517f",
+    "name": "Retail Banking IT Dept I",
+    "chineseName": "個金資訊一部"
+  },
+  {
+    "id": "daaf547ee60b44b5baabfcccac523293",
+    "name": "Retail Banking IT Dept II",
+    "chineseName": "個金資訊二部"
+  },
+  {
+    "id": "32fd71cb71704c1886afedeeab839a77",
+    "name": "Technology Platform Dept",
+    "chineseName": "科技平台部"
+  },
+  {
+    "id": "ef3c6c9b34a642c0aa3701cdf237802d",
+    "name": "Treasury IT Dept",
+    "chineseName": "金融交易資訊部"
+  },
+  {
+    "id": "b55310dbb3ea40758f8f0e5a69b1d0bc",
+    "name": "CTBC-Default"
+  },
+  {
+    "id": "4a49ee789791410db9a0f75b3e8e46d3",
+    "name": "Data and Information Dept"
+  },
+  {
+    "id": "ff53fc06f4a24485a1c35f9930b9c3b5",
+    "name": "Digital Applications Dept III"
+  },
+  {
+    "id": "1a355e4a4a3b43c192d0fd23c5ec9297",
+    "name": "HK-IT"
+  },
+  {
+    "id": "a821106709b148d89a4906d0fce9c226",
+    "name": "Navi Program Dept"
+  },
+  {
+    "id": "a0eb0c3e8a704d87aa750fba0348113c",
+    "name": "Risk Measurement Dept"
+  }
+]
