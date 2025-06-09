@@ -1,332 +1,315 @@
-#!/usr/bin/env python3
-"""
-Nexus Repository Manager User Privilege Management Tool
-"""
-
 import os
 import sys
+import argparse
 import requests
+import json
+from dataclasses import dataclass
+from typing import List, Optional, Dict, Any, Set
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
+@dataclass(frozen=True)
 class Config:
-    def __init__(self):
-        required_environment_variables = [
+    action: str
+    nexus_url: str
+    nexus_username: str
+    nexus_password: str
+    ldap_username: str
+    remote_url: str
+    extra_roles: List[str]
+    repository_name: str
+    privilege_name: str
+    role_name: str
+    package_manager: str
+
+    @classmethod
+    def from_env_and_args(cls) -> "Config":
+        parser = argparse.ArgumentParser()
+        parser.add_argument("action", choices=["create", "delete"])
+        action = parser.parse_args().action
+        for v in [
             "NEXUS_URL",
             "NEXUS_USERNAME",
             "NEXUS_PASSWORD",
-            "PRIVILEGE_NAME",
+            "LDAP_USERNAME",
             "APP_ID",
-            "FRAMEWORK",
-            "USER_ID",
-        ]
-
-        missing_variables = [
-            var for var in required_environment_variables if not os.getenv(var)
-        ]
-        if missing_variables:
-            raise ValueError(
-                f"Missing environment variables: {', '.join(missing_variables)}"
-            )
-
-        self.nexus_url = os.getenv("NEXUS_URL")
-        self.nexus_username = os.getenv("NEXUS_USERNAME")
-        self.nexus_password = os.getenv("NEXUS_PASSWORD")
-        self.privilege_name = os.getenv("PRIVILEGE_NAME")
-        self.privilege_description = os.getenv(
-            "PRIVILEGE_DESCRIPTION", "Custom privilege"
+            "PACKAGE_MANAGER",
+        ]:
+            if not os.getenv(v):
+                raise ValueError(f"Missing env: {v}")
+        pm = os.environ["PACKAGE_MANAGER"]
+        with open(
+            os.path.join(os.path.dirname(__file__), "default_repo_urls.json")
+        ) as f:
+            remote_urls = json.load(f)
+        remote_url = remote_urls.get(pm) or remote_urls.get(pm.lower())
+        if not remote_url:
+            raise ValueError(f"No remote URL for {pm}")
+        repo_id = (
+            "share"
+            if os.getenv("SHARED", "false").lower() == "true"
+            else os.environ["APP_ID"]
         )
-        self.app_id = os.getenv("APP_ID")
-        self.framework = os.getenv("FRAMEWORK")
-        self.user_id = os.getenv("USER_ID")
-
-        self.role_name = self.user_id
-        self.repository_name = f"{self.framework}-release-{self.app_id}"
-
-        # Read default roles from environment variable (comma-separated)
-        self.default_roles = [
-            role.strip()
-            for role in os.getenv("DEFAULT_ROLES", "").split(",")
-            if role.strip()
+        repo_name = f"{pm}-release-{repo_id}"
+        extra_roles = [
+            r.strip() for r in os.getenv("DEFAULT_ROLES", "").split(",") if r.strip()
         ]
+        return cls(
+            action=action,
+            nexus_url=os.environ["NEXUS_URL"],
+            nexus_username=os.environ["NEXUS_USERNAME"],
+            nexus_password=os.environ["NEXUS_PASSWORD"],
+            ldap_username=os.environ["LDAP_USERNAME"],
+            remote_url=remote_url,
+            extra_roles=extra_roles,
+            repository_name=repo_name,
+            privilege_name=repo_name,
+            role_name=os.environ["LDAP_USERNAME"],
+            package_manager=pm,
+        )
 
 
 class NexusClient:
-    def __init__(self, base_url, username, password):
+    def __init__(self, base_url: str, username: str, password: str):
         self.base_url = base_url.rstrip("/")
-        self.session = requests.Session()
-        self.session.auth = (username, password)
-        self.session.headers.update(
+        self.s = requests.Session()
+        self.s.auth = (username, password)
+        self.s.headers.update(
             {"Accept": "application/json", "Content-Type": "application/json"}
         )
 
-    def _request(self, method, endpoint, **kwargs):
-        url = f"{self.base_url}{endpoint}"
-        response = self.session.request(method, url, **kwargs)
-        return response
-
-    def test_connection(self):
+    def _req(self, method: str, endpoint: str, **kwargs: Any) -> requests.Response:
+        url = f"{self.base_url}/service/rest{endpoint}"
         try:
-            response = self._request("GET", "/service/rest/v1/status")
-            return response.status_code == 200
-        except:
-            return False
-
-    def repository_exists(self, repository_name):
-        try:
-            response = self._request(
-                "GET", f"/service/rest/v1/repositories/{repository_name}"
+            r = self.s.request(method, url, **kwargs)
+            if r.status_code != 404:
+                r.raise_for_status()
+            return r
+        except requests.exceptions.HTTPError as e:
+            raise requests.exceptions.HTTPError(
+                f"{method} {url} failed: {e.response.status_code} {e.response.text}",
+                response=e.response,
             )
-            return response.status_code == 200
-        except:
-            return False
+        except requests.exceptions.RequestException as e:
+            raise ConnectionError(f"API {url} failed: {e}")
 
-    def create_repository(self, repository_name, framework):
-        repository_config = {
-            "name": repository_name,
+    def get_repository(self, name: str) -> Optional[Dict[str, Any]]:
+        r = self._req("GET", f"/v1/repositories/{name}")
+        return r.json() if r.ok else None
+
+    def create_proxy_repository(self, name: str, pm: str, remote_url: str) -> bool:
+        config = {
+            "name": name,
             "online": True,
             "storage": {
                 "blobStoreName": "default",
                 "strictContentTypeValidation": True,
-                "writePolicy": "ALLOW",
             },
+            "proxy": {
+                "remoteUrl": remote_url,
+                "contentMaxAge": 1440,
+                "metadataMaxAge": 1440,
+            },
+            "negativeCache": {"enabled": True, "timeToLive": 1440},
+            "httpClient": {"blocked": False, "autoBlock": True},
             "cleanup": {"policyNames": []},
-            "component": {"proprietaryComponents": True},
         }
+        r = self._req("POST", f"/v1/repositories/{pm}/proxy", json=config)
+        return r.status_code == 201
 
-        try:
-            response = self._request(
-                "POST",
-                f"/service/rest/v1/repositories/{framework}/hosted",
-                json=repository_config,
-            )
-            return response.status_code == 201
-        except:
-            return False
+    def delete_repository(self, name: str) -> bool:
+        r = self._req("DELETE", f"/v1/repositories/{name}")
+        return r.status_code in [204, 404]
 
-    def create_privilege(
-        self, privilege_name, privilege_description, repository_name, framework
-    ):
-        privilege_config = {
-            "name": privilege_name,
-            "description": privilege_description,
+    def get_privilege(self, name: str) -> Optional[Dict[str, Any]]:
+        r = self._req("GET", f"/v1/security/privileges/{name}")
+        return r.json() if r.ok else None
+
+    def create_privilege(self, name: str, repo_name: str, pm: str) -> bool:
+        config = {
+            "name": name,
+            "description": f"All permissions for repository '{repo_name}'",
             "actions": ["BROWSE", "READ", "EDIT", "ADD", "DELETE"],
-            "format": framework,
-            "repository": repository_name,
+            "format": pm,
+            "repository": repo_name,
         }
+        r = self._req("POST", "/v1/security/privileges/repository-view", json=config)
+        return r.ok
 
-        try:
-            response = self._request(
-                "POST",
-                "/service/rest/v1/security/privileges/repository-view",
-                json=privilege_config,
-            )
-            return response.status_code == 201
-        except:
-            return False
+    def delete_privilege(self, name: str) -> bool:
+        r = self._req("DELETE", f"/v1/security/privileges/{name}")
+        return r.status_code in [204, 404]
 
-    def get_privilege(self, privilege_name):
-        try:
-            response = self._request(
-                "GET", f"/service/rest/v1/security/privileges/{privilege_name}"
-            )
-            return response.json() if response.status_code == 200 else None
-        except:
-            return None
+    def get_role(self, name: str) -> Optional[Dict[str, Any]]:
+        r = self._req("GET", f"/v1/security/roles/{name}")
+        return r.json() if r.ok else None
 
-    def get_role(self, role_name):
-        try:
-            response = self._request(
-                "GET", f"/service/rest/v1/security/roles/{role_name}"
-            )
-            return response.json() if response.status_code == 200 else None
-        except:
-            return None
-
-    def create_role(self, role_name, role_description, privilege_list):
-        role_config = {
-            "id": role_name,
-            "name": role_name,
-            "description": role_description,
-            "privileges": privilege_list,
+    def create_role(self, name: str, desc: str, privileges: List[str]) -> bool:
+        config = {
+            "id": name,
+            "name": name,
+            "description": desc,
+            "privileges": privileges,
             "roles": [],
         }
+        r = self._req("POST", "/v1/security/roles", json=config)
+        return r.status_code in [200, 201]
 
-        try:
-            response = self._request(
-                "POST", "/service/rest/v1/security/roles", json=role_config
-            )
-            return response.status_code in [200, 201]
-        except:
-            return False
+    def update_role(self, role: Dict[str, Any]) -> bool:
+        r = self._req("PUT", f"/v1/security/roles/{role['id']}", json=role)
+        return r.status_code == 204
 
-    def add_privilege_to_role(self, role_name, privilege_name):
-        existing_role = self.get_role(role_name)
-        if not existing_role:
-            return False
+    def delete_role(self, name: str) -> bool:
+        r = self._req("DELETE", f"/v1/security/roles/{name}")
+        return r.status_code in [204, 404]
 
-        current_privileges = existing_role.get("privileges", [])
-        if privilege_name in current_privileges:
-            return True
+    def get_user(self, user_id: str) -> Optional[Dict[str, Any]]:
+        r = self._req("GET", "/v1/security/users", params={"userId": user_id})
+        if r.ok:
+            users = r.json()
+            return next((u for u in users if u.get("userId") == user_id), None)
+        return None
 
-        current_privileges.append(privilege_name)
-        updated_role_data = {
-            "id": existing_role["id"],
-            "name": existing_role["name"],
-            "description": existing_role.get("description", ""),
-            "privileges": current_privileges,
-            "roles": existing_role.get("roles", []),
-        }
-
-        try:
-            response = self._request(
-                "PUT",
-                f"/service/rest/v1/security/roles/{role_name}",
-                json=updated_role_data,
-            )
-            return response.status_code == 204
-        except:
-            return False
-
-    def get_user(self, user_id):
-        try:
-            response = self._request(
-                "GET", "/service/rest/v1/security/users", params={"userId": user_id}
-            )
-            if response.status_code == 200:
-                user_list = response.json()
-                for user_data in user_list:
-                    if user_data.get("userId") == user_id:
-                        return user_data
-            return None
-        except:
-            return None
-
-    def add_role_to_user(self, user_id, role_name):
-        existing_user = self.get_user(user_id)
-        if not existing_user:
-            return False
-
-        current_roles = existing_user.get("roles", [])
-        if role_name in current_roles:
-            return True
-
-        current_roles.append(role_name)
-        updated_user_data = {
-            "userId": existing_user["userId"] or user_id,
-            "firstName": existing_user.get("firstName") or "Unknown",
-            "lastName": existing_user.get("lastName") or "User",
-            "emailAddress": existing_user.get("emailAddress")
-            or f"{user_id}@example.com",
-            "source": existing_user.get("source") or "default",
-            "status": existing_user.get("status") or "active",
-            "roles": current_roles,
-        }
-
-        try:
-            response = self._request(
-                "PUT",
-                f"/service/rest/v1/security/users/{user_id}",
-                json=updated_user_data,
-            )
-            return response.status_code == 204
-        except:
-            return False
+    def update_user(self, user: Dict[str, Any]) -> bool:
+        r = self._req("PUT", f"/v1/security/users/{user['userId']}", json=user)
+        return r.status_code == 204
 
 
 class PrivilegeManager:
-    def __init__(self, config):
-        self.config = config
-        self.nexus = NexusClient(
+    def __init__(self, config: Config):
+        self.c = config
+        self.n = NexusClient(
             config.nexus_url, config.nexus_username, config.nexus_password
         )
 
-    # Helper method to unify check-and-create logic
-    def _ensure_entity(self, entity_type, exists_function, create_function, *args):
-        print(f"\nChecking {entity_type} '{args[0]}'...")
-        if not exists_function(*args):
-            print(f"   Creating {entity_type}...")
-            if not create_function(*args):
-                raise RuntimeError(f"{entity_type.title()} {args[0]} creation failed")
-        print(f"   ✅ {entity_type.title()} ready")
-
-    def run(self):
-        print("🔧 Nexus Privilege Management Tool")
-        print("=" * 40)
-
-        # Test connection
-        if not self.nexus.test_connection():
-            raise RuntimeError("Failed to connect to Nexus server")
-        print("✅ Connected to Nexus")
-
-        # Ensure repository and privilege
-        print(f"\nChecking repository '{self.config.repository_name}'...")
-        if not self.nexus.repository_exists(self.config.repository_name):
-            print("   Creating repository...")
-            if not self.nexus.create_repository(
-                self.config.repository_name, self.config.framework
-            ):
-                raise RuntimeError(
-                    f"Repository {self.config.repository_name} creation failed"
-                )
-        print("   ✅ Repository ready")
-        self._ensure_entity(
-            "privilege",
-            self.nexus.get_privilege,
-            lambda privilege_name: self.nexus.create_privilege(
-                privilege_name,
-                self.config.privilege_description,
-                self.config.repository_name,
-                self.config.framework,
-            ),
-            self.config.privilege_name,
+    def run(self) -> None:
+        print(
+            f"\n🔧 {self.c.action.upper()} Nexus Repository: {self.c.repository_name}"
         )
+        print(f"👤 User/Role: {self.c.role_name}")
+        try:
+            if self.c.action == "create":
+                self.create()
+            else:
+                self.delete()
+            print("\n✅ Done!")
+        except Exception as e:
+            print(f"\n❌ Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        # Ensure role and assign privilege
-        role_name = self.config.role_name
-        print(f"\nChecking role '{role_name}'...")
-        existing_role = self.nexus.get_role(role_name)
-        if not existing_role:
-            print("   Creating role...")
-            if not self.nexus.create_role(
-                role_name,
-                f"Role for {self.config.app_id}",
-                [self.config.privilege_name],
+    def create(self) -> None:
+        print("  ➡️ Checking repository...")
+        if not self.n.get_repository(self.c.repository_name):
+            print("    🏗️ Creating repository...")
+            if not self.n.create_proxy_repository(
+                self.c.repository_name, self.c.package_manager, self.c.remote_url
             ):
-                raise RuntimeError(f"Role {role_name} creation failed")
+                raise RuntimeError("Repository creation failed.")
         else:
-            print("   Adding privilege to role...")
-            if not self.nexus.add_privilege_to_role(
-                role_name, self.config.privilege_name
+            print("    ✔️ Repository exists.")
+        print("  ➡️ Checking privilege...")
+        if not self.n.get_privilege(self.c.privilege_name):
+            print("    🏗️ Creating privilege...")
+            if not self.n.create_privilege(
+                self.c.privilege_name, self.c.repository_name, self.c.package_manager
             ):
-                raise RuntimeError(f"Adding privilege to role {role_name} failed")
-        print("   ✅ Role ready")
+                raise RuntimeError("Privilege creation failed.")
+        else:
+            print("    ✔️ Privilege exists.")
+        self.ensure_role_and_privilege()
+        self.ensure_user_and_role()
 
-        # Assign roles to user
-        print(f"\nAdding role to user '{self.config.user_id}'...")
-        for role_to_assign in set([role_name] + self.config.default_roles):
-            if not self.nexus.add_role_to_user(self.config.user_id, role_to_assign):
-                raise RuntimeError(f"Failed to add role '{role_to_assign}' to user")
-        print("   ✅ User updated")
+    def ensure_role_and_privilege(self) -> None:
+        print("  ➡️ Checking role...")
+        role = self.n.get_role(self.c.role_name)
+        if not role:
+            print("    🏗️ Creating role and linking privilege...")
+            if not self.n.create_role(
+                self.c.role_name,
+                f"Role for {self.c.ldap_username}",
+                [self.c.privilege_name],
+            ):
+                raise RuntimeError("Role creation failed.")
+        elif self.c.privilege_name not in role.get("privileges", []):
+            print("    🔗 Linking privilege to role...")
+            role["privileges"].append(self.c.privilege_name)
+            if not self.n.update_role(role):
+                raise RuntimeError("Failed to link privilege to role.")
+        else:
+            print("    ✔️ Role and privilege link exists.")
 
-        print("\n🎉 All operations completed successfully!")
+    def ensure_user_and_role(self) -> None:
+        print("  ➡️ Checking user-role link...")
+        user = self.n.get_user(self.c.ldap_username)
+        if not user:
+            raise RuntimeError(f"User '{self.c.ldap_username}' not found.")
+        current = set(user.get("roles", []))
+        required = set([self.c.role_name] + self.c.extra_roles)
+        if not required.issubset(current):
+            print("    🔗 Linking role(s) to user...")
+            user["roles"] = sorted(list(current | required))
+            if not self.n.update_user(user):
+                raise RuntimeError("Failed to link role to user.")
+        else:
+            print("    ✔️ User already has required role(s).")
+
+    def delete(self) -> None:
+        print("  ➡️ Unlinking and cleaning up...")
+        self.handle_unlink()
+        print("  ➡️ Deleting privilege...")
+        if not self.n.delete_privilege(self.c.privilege_name):
+            raise RuntimeError("Privilege deletion failed.")
+        print("    🗑️ Privilege deleted.")
+        print("  ➡️ Deleting repository...")
+        if not self.n.delete_repository(self.c.repository_name):
+            raise RuntimeError("Repository deletion failed.")
+        print("    🗑️ Repository deleted.")
+
+    def handle_unlink(self) -> None:
+        role = self.n.get_role(self.c.role_name)
+        if not role or self.c.privilege_name not in role.get("privileges", []):
+            print("    ✔️ Role or privilege link already absent.")
+            return
+        privs = set(role["privileges"])
+        privs.remove(self.c.privilege_name)
+        if not privs:
+            print("    🗑️ Role will be empty, deleting role and unlinking from user...")
+            user = self.n.get_user(self.c.ldap_username)
+            if user and self.c.role_name in user.get("roles", []):
+                user["roles"].remove(self.c.role_name)
+                if not self.n.update_user(user):
+                    raise RuntimeError("Failed to unlink role from user.")
+            if not self.n.delete_role(self.c.role_name):
+                raise RuntimeError("Failed to delete empty role.")
+            print("    🗑️ Role deleted.")
+        else:
+            print("    🔗 Unlinking privilege from role...")
+            role["privileges"] = sorted(list(privs))
+            if not self.n.update_role(role):
+                raise RuntimeError("Failed to unlink privilege from role.")
+            print("    ✔️ Privilege unlinked from role.")
 
 
-def main():
-    config = Config()
-    manager = PrivilegeManager(config)
+def main() -> None:
     try:
-        manager.run()
-    except KeyboardInterrupt:
-        print("\n⚠️  Operation cancelled by user")
-        sys.exit(0)
-    except Exception as e:
-        print(f"💥 {e}")
+        config = Config.from_env_and_args()
+        PrivilegeManager(config).run()
+    except (
+        ValueError,
+        RuntimeError,
+        ConnectionError,
+        requests.exceptions.HTTPError,
+    ) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
-    else:
-        sys.exit(0)
+    except KeyboardInterrupt:
+        print("\nCancelled by user.", file=sys.stderr)
+        sys.exit(130)
+    except Exception as e:
+        print(f"Unexpected error: {type(e).__name__} - {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
