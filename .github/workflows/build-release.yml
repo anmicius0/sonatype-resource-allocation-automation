@@ -1,0 +1,113 @@
+name: Build & Release
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+  workflow_dispatch:
+
+env: { UV_SYSTEM_PYTHON: 1 }
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    strategy:
+      matrix:
+        include:
+          - {
+              os: ubuntu-latest,
+              asset: create-repo-linux,
+              container: rockylinux:8,
+            }
+          - { os: windows-latest, asset: create-repo-windows }
+          - { os: macos-latest, asset: create-repo-macos }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        if: matrix.container != 'rockylinux:8'
+
+      - name: Install deps (Rocky Linux only)
+        if: matrix.container == 'rockylinux:8'
+        run: |
+          dnf install -y git curl gcc make
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Setup & sync Python
+        run: uv python install && uv sync --frozen
+
+      - name: Build executable
+        shell: bash
+        run: |
+          ADDDATA="--add-data=config:config --add-data=src/resource_allocation:resource_allocation"
+          COLLECT_PYD="--collect-all pydantic"
+          EXTRA_IMPORTS="--hidden-import=fastapi --hidden-import=starlette --hidden-import=uvicorn --hidden-import=anyio --hidden-import=sniffio --hidden-import=requests --hidden-import=python-dotenv"
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            uv run pyinstaller --onefile --name create-repo ${COLLECT_PYD} ${ADDDATA//:/;} ${EXTRA_IMPORTS} src/resource_allocation/__main__.py
+          else
+            uv run pyinstaller --onefile --name create-repo ${COLLECT_PYD} $ADDDATA ${EXTRA_IMPORTS} src/resource_allocation/__main__.py
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p ${{ matrix.asset }}
+          exe="create-repo${{ runner.os == 'Windows' && '.exe' || '' }}"
+          cp dist/$exe ${{ matrix.asset }}/
+          echo $exe > ${{ matrix.asset }}/executable_name.txt
+          cp -r config ${{ matrix.asset }}/ && cp README.md ${{ matrix.asset }}/
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            powershell Compress-Archive ${{ matrix.asset }} ${{ matrix.asset }}.zip
+          else
+            tar -czf ${{ matrix.asset }}.tar.gz ${{ matrix.asset }}/
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}.*
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions: { contents: write }
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { merge-multiple: true }
+
+      - name: Delete previous releases
+        run: |
+          gh release list --json tagName --jq '.[].tagName' | while read tag; do
+            if [ -n "$tag" ]; then
+              gh release delete "$tag" --yes --cleanup-tag
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=main-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
+          fi
+
+      - id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: resource-allocation-automation
+          body: |
+            **Release Date:** ${{ steps.date.outputs.date }}
+          files: |
+            create-repo-windows.zip
+            create-repo-macos.tar.gz
+            create-repo-linux.tar.gz
