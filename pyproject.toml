@@ -1,0 +1,16 @@
+[project]
+name = "create-repo"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic==2.11.7",
+    "python-dotenv==1.1.0",
+    "requests==2.32.3",
+    "urllib3==2.4.0",
+    "pyinstaller>=6.0.0",
+    "fastapi>=0.116.1",
+    "uvicorn[standard]>=0.23.0",
+]
+
+[project.scripts]
+create-repo = "create_repo.__main__:main"
