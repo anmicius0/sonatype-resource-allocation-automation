@@ -1,97 +1,95 @@
-# Nexus Privilege Management Tool
+# Nexus Manager
 
-Automates creation and deletion of Nexus Repository Manager resources including repositories, privileges, roles, and user permissions.
+## Overview
 
-## Quick Start
+Nexus Manager is a cross-platform tool for managing Nexus Repository and IQ Server, providing both a web interface and a CLI. It is distributed as a standalone executable for Windows, macOS, and Linux—no Python installation required.
 
-1. Install dependencies: `pip install requests python-dotenv`
-2. Create `.env` file with required variables
-3. Run: `python main.py create` or `python main.py delete`
+---
 
-## Configuration
+## Using the Release Executable
 
-Create a `.env` file:
+### 1. Download & Extract
 
-```env
-NEXUS_URL=https://your-nexus-instance.com
-NEXUS_USERNAME=admin-user
-NEXUS_PASSWORD=admin-password
-LDAP_USERNAME=your-ldap-username
-APP_ID=your-app-id
-PACKAGE_MANAGER=npm  # or 'go'
-SHARED=false  # true for shared repositories
-DEFAULT_ROLES=role1,role2  # optional
-```
+- Download the appropriate archive for your platform from the release page.
+- Extract the archive. You will get a folder containing:
+  - The executable (`nexus-manager` or `nexus-manager.exe`)
+  - `config/` (configuration files)
+  - `templates/` (web UI templates)
+  - `pyproject.toml`
+  - `README.md`
 
-## Workflow Logic
+### 2. Configure Environment
 
-### Create Workflow
+- Copy `config/.env.example` to `config/.env` and fill in your server details and secrets.
 
-```
-1. Repository Creation
-   ├── Check if repository exists
-   ├── Create proxy repository if missing
-   └── Configure with appropriate remote URL
+### 3. Run the Application
 
-2. Privilege Creation
-   ├── Check if privilege exists
-   ├── Create repository-view privilege if missing
-   └── Grant BROWSE, READ, EDIT, ADD, DELETE permissions
+- **Web UI:**
+  - On Linux/macOS: `./nexus-manager`
+  - On Windows: `nexus-manager.exe`
+- **CLI:**
+  - On Linux/macOS: `./nexus-manager cli`
+  - On Windows: `nexus-manager.exe cli`
 
-3. Role Management
-   ├── Check if user role exists
-   ├── Create role if missing
-   ├── Link privilege to role
-   └── Ensure role has required privilege
+---
 
-4. User Assignment
-   ├── Verify LDAP user exists
-   ├── Get current user roles
-   ├── Add new role + any extra roles
-   └── Update user permissions
-```
+## Customization
 
-### Delete Workflow
+### Configuration
 
-```
-1. Role & User Unlinking
-   ├── Remove privilege from role
-   ├── Check if role becomes empty
-   ├── If empty: unlink role from user
-   └── If empty: delete the role
+- All configuration is in the `config/` directory.
+- Edit `config/.env` for environment variables (see `.env.example` for options).
+- Edit `config/organisations.json` and `config/package_manager_config.json` for organization and package manager settings.
 
-2. Privilege Deletion
-   ├── Remove the repository privilege
-   └── Handle missing privilege gracefully
+### Web Templates
 
-3. Repository Cleanup
-   ├── Delete the repository
-   └── Handle missing repository gracefully
-```
+- The web UI uses Jinja2 templates in the `templates/` directory.
+- Customize `index.html` and `result.html` as needed.
 
-## Repository Naming
+---
 
-- Regular: `{package_manager}-release-{app_id}`
-- Shared: `{package_manager}-release-share`
+## Codebase Maintenance
 
-Examples: `npm-release-myapp`, `go-release-share`
+### Structure
 
-## Supported Package Managers
+- `nexus_manager.py`: Main entry point.
+- `nexus_manager/`: Core logic and utilities.
+  - `core.py`: Main business logic.
+  - `utils.py`: Helper functions.
+  - `error_handler.py`: Error handling.
+- `config/`: Configuration files.
+- `templates/`: Web UI templates.
 
-| Package Manager | Remote URL                  |
-| --------------- | --------------------------- |
-| npm             | https://registry.npmjs.org/ |
-| go              | https://proxy.golang.org/   |
+### Adding Features
 
-## Example Usage
+- Add new logic in `nexus_manager/` as needed.
+- Register new CLI commands or web routes in `nexus_manager.py` or `core.py`.
+- Update templates for UI changes.
 
-```bash
-# Create npm repository for specific app
-APP_ID=frontend-app PACKAGE_MANAGER=npm python main.py create
+### Dependency Management
 
-# Create shared Go repository
-PACKAGE_MANAGER=go SHARED=true python main.py create
+- Dependencies are managed with [uv](https://github.com/astral-sh/uv) and listed in `pyproject.toml`.
+- To add a dependency:
+  1. Install [uv](https://github.com/astral-sh/uv) locally.
+  2. Run `uv pip install <package>`.
+  3. Update `pyproject.toml` and commit changes.
 
-# Delete resources
-python main.py delete
-```
+### Building the Executable
+
+- Builds are automated via GitHub Actions.
+- To build locally:
+  1. Install [uv](https://github.com/astral-sh/uv) and [pyinstaller](https://pyinstaller.org/).
+  2. Run the build command as in `.github/workflows/build-release.yml`.
+
+---
+
+## Support
+
+- For issues, open a GitHub issue in this repository.
+- For configuration help, see comments in `config/.env.example`.
+
+---
+
+## License
+
+See `LICENSE` file (if present) for license information.

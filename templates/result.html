@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {{ 'Operation Result - Nexus Repository Manager' if lang == 'en-us' else
+      '操作結果 - 倉庫管理工具' }}
+    </title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f4 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .container {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
+          0 1px 4px rgba(0, 0, 0, 0.04);
+        max-width: 620px;
+        width: 100%;
+        overflow: hidden;
+        text-align: center;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        word-break: break-word;
+        transition: box-shadow 0.3s ease;
+      }
+
+      .container:hover {
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12),
+          0 2px 8px rgba(0, 0, 0, 0.06);
+      }
+
+      .header {
+        background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+        color: #2d3748;
+        padding: 48px 32px 44px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        position: relative;
+        min-height: 160px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .header::before {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 123, 255, 0.3),
+          transparent
+        );
+      }
+
+      .header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        line-height: 1.3;
+        letter-spacing: -0.3px;
+      }
+
+      .header .icon {
+        font-size: 32px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        flex-shrink: 0;
+      }
+
+      .content {
+        padding: 44px 32px 40px;
+      }
+
+      .result-container {
+        margin-bottom: 36px;
+      }
+
+      .result-icon {
+        font-size: 72px;
+        margin-bottom: 24px;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+      }
+
+      .result-message {
+        font-size: 18px;
+        line-height: 1.6;
+        margin-bottom: 28px;
+        padding: 24px 28px;
+        border-radius: 16px;
+        font-weight: 600;
+        word-break: break-all;
+        white-space: pre-line;
+        border-left: 4px solid;
+        position: relative;
+        animation: slideIn 0.4s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-15px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .success {
+        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+        color: #16a34a;
+        border-left-color: #16a34a;
+      }
+
+      .error {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        color: #dc2626;
+        border-left-color: #dc2626;
+      }
+
+      .details {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border-radius: 16px;
+        padding: 28px;
+        margin-bottom: 36px;
+        text-align: left;
+        word-break: break-word;
+        border: 1px solid rgba(0, 123, 255, 0.05);
+      }
+
+      .details h3 {
+        color: #2d3748;
+        margin-bottom: 20px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+      }
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        flex-wrap: wrap;
+      }
+
+      .detail-item:last-child {
+        border-bottom: none;
+      }
+
+      .detail-label {
+        font-weight: 600;
+        color: #718096;
+        font-size: 15px;
+      }
+
+      .detail-value {
+        font-weight: 700;
+        color: #2d3748;
+        font-size: 15px;
+      }
+
+      .back-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 32px;
+        background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 16px;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        word-break: keep-all;
+        letter-spacing: -0.2px;
+        box-shadow: 0 4px 14px rgba(0, 123, 255, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .back-button::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.2),
+          transparent
+        );
+        transition: left 0.5s;
+      }
+
+      .back-button:hover::before {
+        left: 100%;
+      }
+
+      .back-button:hover {
+        background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+        text-decoration: none;
+      }
+
+      .back-button:active {
+        transform: translateY(0);
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 0;
+        }
+
+        .container {
+          margin: 0;
+          border-radius: 0;
+          min-height: 100vh;
+          max-width: 100vw;
+          box-shadow: none;
+        }
+
+        .details {
+          text-align: center;
+        }
+
+        .detail-item {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+        }
+
+        .content,
+        .header {
+          padding-left: 20px;
+          padding-right: 20px;
+        }
+
+        .header {
+          padding-top: 40px;
+          padding-bottom: 32px;
+        }
+
+        .header h1 {
+          font-size: 26px;
+          gap: 10px;
+        }
+
+        .header .icon {
+          font-size: 30px;
+        }
+
+        .result-icon {
+          font-size: 60px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <span class="icon">📋</span>
+          {{ 'Operation Result' if lang == 'en-us' else '操作結果' }}
+        </h1>
+      </div>
+
+      <div class="content">
+        <div class="result-container">
+          <div class="result-icon">
+            {% if result.success %} ✅ {% else %} ❌ {% endif %}
+          </div>
+
+          <div
+            class="result-message {{ 'success' if result.success else 'error' }}"
+          >
+            {{ result.message }}
+          </div>
+        </div>
+
+        {% if result.repository_name or result.ldap_username or result.action %}
+        <div class="details">
+          <h3>{{ 'Operation Details' if lang == 'en-us' else '操作明細' }}</h3>
+
+          {% if result.action %}
+          <div class="detail-item">
+            <span class="detail-label"
+              >{{ 'Operation:' if lang == 'en-us' else '操作：' }}</span
+            >
+            <span class="detail-value">
+              {% if lang == 'en-us' %}{{ result.action.title() }}{% else %}{{
+              '建立' if result.action == 'create' else '刪除' }}{% endif %}
+            </span>
+          </div>
+          {% endif %} {% if result.repository_name %}
+          <div class="detail-item">
+            <span class="detail-label"
+              >{{ 'Repository:' if lang == 'en-us' else '倉庫名稱：' }}</span
+            >
+            <span class="detail-value">{{ result.repository_name }}</span>
+          </div>
+          {% endif %} {% if result.ldap_username %}
+          <div class="detail-item">
+            <span class="detail-label"
+              >{{ 'LDAP User:' if lang == 'en-us' else 'LDAP 帳號：' }}</span
+            >
+            <span class="detail-value">{{ result.ldap_username }}</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <a href="/" class="back-button">
+          ← {{ 'Back to form' if lang == 'en-us' else '返回表單' }}
+        </a>
+      </div>
+    </div>
+  </body>
+</html>

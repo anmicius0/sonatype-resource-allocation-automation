@@ -1,0 +1,381 @@
+{
+  "supported_formats": {
+    "apt": {
+      "endpoint": "apt",
+      "display_name": "APT (Ubuntu/Debian)",
+      "description": "Debian/Ubuntu package manager",
+      "proxy_supported": true,
+      "default_url": "https://archive.ubuntu.com/ubuntu/",
+      "default_config": {
+        "distribution": "focal",
+        "flat": false
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/apt/proxy",
+        "required_fields": [
+          "apt",
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "apt": {
+            "distribution": "focal",
+            "flat": false
+          }
+        }
+      }
+    },
+    "bower": {
+      "endpoint": null,
+      "display_name": "Bower",
+      "description": "Web package manager (deprecated)",
+      "proxy_supported": false,
+      "default_url": "https://registry.bower.io",
+      "note": "Bower proxy repositories are not supported in Nexus Repository Manager"
+    },
+    "cocoapods": {
+      "endpoint": "cocoapods",
+      "display_name": "CocoaPods",
+      "description": "iOS/macOS dependency manager",
+      "proxy_supported": true,
+      "default_url": "https://cdn.cocoapods.org/",
+      "api_endpoint": {
+        "path": "/v1/repositories/cocoapods/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "conda": {
+      "endpoint": "conda",
+      "display_name": "Conda",
+      "description": "Python package and environment manager",
+      "proxy_supported": true,
+      "default_url": "https://repo.anaconda.com/pkgs/main/",
+      "api_endpoint": {
+        "path": "/v1/repositories/conda/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "conan": {
+      "endpoint": "conan",
+      "display_name": "Conan",
+      "description": "C/C++ package manager",
+      "proxy_supported": true,
+      "default_url": "https://center.conan.io",
+      "api_endpoint": {
+        "path": "/v1/repositories/conan/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "conanProxy": {
+            "conanVersion": "V1"
+          }
+        }
+      }
+    },
+    "docker": {
+      "endpoint": "docker",
+      "display_name": "Docker",
+      "description": "Container image registry",
+      "proxy_supported": true,
+      "default_url": "https://registry-1.docker.io/",
+      "default_config": {
+        "v1Enabled": false,
+        "forceBasicAuth": true,
+        "httpPort": null,
+        "httpsPort": null,
+        "subdomain": null
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/docker/proxy",
+        "required_fields": [
+          "docker",
+          "dockerProxy",
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "docker": {
+            "v1Enabled": false,
+            "forceBasicAuth": true,
+            "httpPort": null,
+            "httpsPort": null,
+            "subdomain": null
+          },
+          "dockerProxy": {
+            "indexType": "HUB",
+            "cacheForeignLayers": false,
+            "foreignLayerUrlWhitelist": []
+          }
+        }
+      }
+    },
+    "gitlfs": {
+      "endpoint": null,
+      "display_name": "Git LFS",
+      "description": "Git Large File Storage",
+      "proxy_supported": false,
+      "default_url": "https://github.com/",
+      "note": "Git LFS proxy repositories are not supported in Nexus Repository Manager"
+    },
+    "go": {
+      "endpoint": "go",
+      "display_name": "Go",
+      "description": "Go module proxy",
+      "proxy_supported": true,
+      "default_url": "https://proxy.golang.org",
+      "api_endpoint": {
+        "path": "/v1/repositories/go/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "helm": {
+      "endpoint": "helm",
+      "display_name": "Helm",
+      "description": "Kubernetes package manager",
+      "proxy_supported": true,
+      "default_url": "https://charts.helm.sh/stable",
+      "api_endpoint": {
+        "path": "/v1/repositories/helm/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "maven2": {
+      "endpoint": "maven",
+      "display_name": "Maven",
+      "description": "Java build tool and dependency manager",
+      "proxy_supported": true,
+      "privilege_format": "maven",
+      "default_url": "https://repo1.maven.org/maven2/",
+      "default_config": {
+        "versionPolicy": "RELEASE",
+        "layoutPolicy": "STRICT",
+        "contentDisposition": "ATTACHMENT"
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/maven/proxy",
+        "required_fields": [
+          "httpClient",
+          "maven",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "maven": {
+            "versionPolicy": "RELEASE",
+            "layoutPolicy": "STRICT",
+            "contentDisposition": "ATTACHMENT"
+          }
+        }
+      }
+    },
+    "npm": {
+      "endpoint": "npm",
+      "display_name": "npm",
+      "description": "Node.js package manager",
+      "proxy_supported": true,
+      "default_url": "https://registry.npmjs.org",
+      "default_config": {
+        "removeNonCataloged": false,
+        "removeQuarantined": false
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/npm/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "npm": {
+            "removeQuarantined": false
+          }
+        }
+      }
+    },
+    "nuget": {
+      "endpoint": "nuget",
+      "display_name": "NuGet",
+      "description": ".NET package manager",
+      "proxy_supported": true,
+      "default_url": "https://api.nuget.org/v3/index.json",
+      "default_config": {
+        "queryCacheItemMaxAge": 3600,
+        "nugetVersion": "V3"
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/nuget/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "nugetProxy",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "nugetProxy": {
+            "queryCacheItemMaxAge": 3600,
+            "nugetVersion": "V3"
+          }
+        }
+      }
+    },
+    "p2": {
+      "endpoint": "p2",
+      "display_name": "p2",
+      "description": "Eclipse plugin repository",
+      "proxy_supported": true,
+      "default_url": "https://download.eclipse.org/releases/latest/",
+      "api_endpoint": {
+        "path": "/v1/repositories/p2/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "pypi": {
+      "endpoint": "pypi",
+      "display_name": "PyPI",
+      "description": "Python package index",
+      "proxy_supported": true,
+      "default_url": "https://pypi.org/simple",
+      "default_config": {
+        "removeQuarantined": true
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/pypi/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "pypi": {
+            "removeQuarantined": true
+          }
+        }
+      }
+    },
+    "r": {
+      "endpoint": "r",
+      "display_name": "R",
+      "description": "R package repository",
+      "proxy_supported": true,
+      "default_url": "https://cloud.r-project.org",
+      "api_endpoint": {
+        "path": "/v1/repositories/r/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "rubygems": {
+      "endpoint": "rubygems",
+      "display_name": "RubyGems",
+      "description": "Ruby package manager",
+      "proxy_supported": true,
+      "default_url": "https://rubygems.org",
+      "api_endpoint": {
+        "path": "/v1/repositories/rubygems/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ]
+      }
+    },
+    "yum": {
+      "endpoint": "yum",
+      "display_name": "Yum",
+      "description": "Red Hat/CentOS package manager",
+      "proxy_supported": true,
+      "default_url": "http://mirror.centos.org/centos/",
+      "default_config": {
+        "repodataDepth": 0,
+        "deployPolicy": "STRICT"
+      },
+      "api_endpoint": {
+        "path": "/v1/repositories/yum/proxy",
+        "required_fields": [
+          "httpClient",
+          "name",
+          "negativeCache",
+          "online",
+          "proxy",
+          "storage"
+        ],
+        "format_specific_config": {
+          "yumSigning": {
+            "keypair": null,
+            "passphrase": null
+          }
+        }
+      }
+    }
+  }
+}

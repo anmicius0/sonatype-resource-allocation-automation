@@ -58,3 +58,14 @@ logs/
 # Temporary files
 *.tmp
 *.temp
+
+debug-org.json
+
+# PyInstaller build artifacts
+*.spec
+nexus-manager-dist/
+*.tar.gz
+*.zip
+
+# Local configuration overrides
+config/.env.local

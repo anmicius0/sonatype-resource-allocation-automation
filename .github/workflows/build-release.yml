@@ -1,0 +1,148 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+env:
+  UV_SYSTEM_PYTHON: 1
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset_name: nexus-manager-linux
+          - os: windows-latest
+            asset_name: nexus-manager-windows
+          - os: macos-latest
+            asset_name: nexus-manager-macos
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python and dependencies
+        run: |
+          uv python install
+          uv sync --frozen
+
+      - name: Build executable (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          uv run pyinstaller --onefile --name nexus-manager --add-data=config:config --add-data=nexus_manager:nexus_manager --add-data=templates:templates --hidden-import=nexus_manager.core --hidden-import=nexus_manager.utils --hidden-import=nexus_manager.error_handler --hidden-import=flask --hidden-import=dotenv --clean nexus_manager.py
+
+      - name: Build executable (Non-Windows)
+        if: runner.os != 'Windows'
+        run: |
+          uv run pyinstaller \
+            --onefile \
+            --name nexus-manager \
+            --add-data=config:config \
+            --add-data=nexus_manager:nexus_manager \
+            --add-data=templates:templates \
+            --hidden-import=nexus_manager.core \
+            --hidden-import=nexus_manager.utils \
+            --hidden-import=nexus_manager.error_handler \
+            --hidden-import=flask \
+            --hidden-import=dotenv \
+            --clean \
+            nexus_manager.py
+
+      - name: Package release
+        shell: bash
+        run: |
+          mkdir -p ${{ matrix.asset_name }}
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp dist/nexus-manager.exe ${{ matrix.asset_name }}/
+            echo "nexus-manager.exe" > ${{ matrix.asset_name }}/executable_name.txt
+          else
+            cp dist/nexus-manager ${{ matrix.asset_name }}/
+            echo "nexus-manager" > ${{ matrix.asset_name }}/executable_name.txt
+          fi
+          cp -r config ${{ matrix.asset_name }}/
+          cp -r templates ${{ matrix.asset_name }}/
+          cp pyproject.toml ${{ matrix.asset_name }}/
+          cp README.md ${{ matrix.asset_name }}/
+
+      - name: Create archive
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            powershell Compress-Archive -Path ${{ matrix.asset_name }} -DestinationPath ${{ matrix.asset_name }}.zip
+          else
+            tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.asset_name }}/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: ${{ matrix.asset_name }}.*
+          retention-days: 30
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          else
+            VERSION="latest"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Nexus Manager ${{ steps.version.outputs.version }}
+          body: |
+            ## Nexus Repository Manager ${{ steps.version.outputs.version }}
+
+            Cross-platform executables with CLI and web interfaces.
+
+            **Downloads:**
+            - Windows: `nexus-manager-windows.zip`
+            - macOS: `nexus-manager-macos.tar.gz`
+            - Linux: `nexus-manager-linux.tar.gz`
+
+            **Quick Start:**
+            1. Download and extract for your platform
+            2. Create `.env` file in `config/` directory
+            3. Run: `./nexus-manager` (web) or `./nexus-manager cli` (CLI)
+
+            No Python installation required.
+          files: |
+            nexus-manager-windows.zip
+            nexus-manager-macos.tar.gz
+            nexus-manager-linux.tar.gz
+          draft: false
+          prerelease: ${{ steps.version.outputs.version == 'latest' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
